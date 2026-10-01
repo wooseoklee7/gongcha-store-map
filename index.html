@@ -75,7 +75,7 @@
     <div class="setup-card">
       <div class="setup-logo">GC</div>
       <h2>공차 직영점 지도</h2>
-      <p>카카오맵 JavaScript 키를 입력하면 지도를 시작합니다. 키는 이 탭의 세션에만 저장되며, 이 HTML 파일 자체에는 저장되지 않습니다.</p>
+      <p>카카오맵 JavaScript 키를 처음 한 번 입력하면 이 브라우저에 저장되며, 다음 접속부터 자동으로 지도를 시작합니다.</p>
       <div class="keybox">
         <input id="apiKey" type="text" autocomplete="off" placeholder="Kakao JavaScript Key" />
         <button class="primary" id="startBtn">지도 시작</button>
@@ -621,12 +621,18 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const norm = (s='') => s.toLowerCase().replace(/공차|gong\s*cha|\s|\(|\)|-|_/g,'');
 const esc = (s='') => String(s).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
-$('apiKey').value = sessionStorage.getItem('gongcha_kakao_js_key') || '';
+const SAVED_KAKAO_KEY = localStorage.getItem('gongcha_kakao_js_key') || '';
+$('apiKey').value = SAVED_KAKAO_KEY;
 $('startBtn').addEventListener('click', startWithKey);
 $('apiKey').addEventListener('keydown', e => { if(e.key==='Enter') startWithKey(); });
 $('candidateBtn').addEventListener('click', searchCandidate);
 $('candidateAddress').addEventListener('keydown', e => { if(e.key==='Enter') searchCandidate(); });
 $('storeSearch').addEventListener('input', renderResults);
+
+// 저장된 키가 있으면 다음 접속부터 입력 화면 없이 자동 실행
+if(SAVED_KAKAO_KEY){
+  setTimeout(() => loadSdk(SAVED_KAKAO_KEY), 0);
+}
 
 function showSetupError(msg){ $('setupError').textContent = msg; $('setupError').style.display='block'; }
 
@@ -634,7 +640,7 @@ function startWithKey(){
   const key = $('apiKey').value.trim();
   if(!key){ showSetupError('JavaScript 키를 입력해주세요.'); return; }
   $('setupError').style.display='none';
-  sessionStorage.setItem('gongcha_kakao_js_key', key);
+  localStorage.setItem('gongcha_kakao_js_key', key);
   loadSdk(key);
 }
 
