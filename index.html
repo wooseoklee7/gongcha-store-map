@@ -57,12 +57,14 @@
     .candidate-pin .bubble{background:var(--blue);color:white;font-size:11px;font-weight:900;padding:6px 9px;border-radius:9px;white-space:nowrap;border:2px solid white}
     .candidate-pin .tip{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid var(--blue);margin-top:-2px}
     .info-card{min-width:210px;max-width:260px;padding:12px 13px 10px;font-family:inherit}.info-card strong{font-size:13px}.info-card p{margin:5px 0 8px;font-size:11px;color:#6d6264;line-height:1.45}.info-card a{color:var(--gongcha);font-size:11px;font-weight:800;text-decoration:none;margin-right:8px}.setup h2{margin:0 0 8px;font-size:24px;letter-spacing:-.7px}.setup p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}.keybox input{flex:1;min-width:0;border:1px solid var(--line);border-radius:11px;padding:12px 13px;outline:none}.keybox input:focus{border-color:#d78a93;box-shadow:0 0 0 3px rgba(196,32,51,.08)}.steps b{color:var(--ink)}
+    .diagnostic{position:absolute;top:14px;right:14px;z-index:30;max-width:440px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.5;display:none;box-shadow:0 6px 20px rgba(0,0,0,.10)}
     .loading{position:absolute;top:14px;left:14px;z-index:11;background:rgba(255,255,255,.95);border:1px solid rgba(0,0,0,.08);box-shadow:0 6px 20px rgba(0,0,0,.08);border-radius:10px;padding:9px 11px;font-size:11px;color:#5b5153;display:none}
     @media(max-width:900px){
       .app{height:auto;min-height:100%}.workspace{grid-template-columns:1fr;grid-template-rows:62vh auto}.side{border-left:0;border-top:1px solid var(--line);min-height:420px}.topbar{flex-wrap:wrap}.candidate-search{order:2;flex-basis:100%;max-width:none}.workspace{min-height:0}.map-wrap{min-height:420px}
     }
     @media(max-width:520px){.brandtext span{display:none}.topbar{padding:11px}.candidate-search{gap:6px}.candidate-search input{padding:10px 11px}.primary{padding:0 12px}.workspace{grid-template-rows:56vh auto}.side-head{padding:15px}}
   </style>
+  <script id="kakao-sdk" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=31a83337e601fce63d6d16b38ac36ba8&libraries=services&autoload=false"></script>
 </head>
 <body>
   <main class="app" id="app">
@@ -80,6 +82,7 @@
     <section class="workspace">
       <div class="map-wrap">
         <div id="map"></div>
+        <div class="diagnostic" id="diagnostic"></div>
         <div class="loading" id="loading">매장 위치 확인 중… <b id="progressText">0 / 60</b></div>
         <div class="map-note">가까운 매장 순위는 <b>직선거리 기준</b>입니다. 실제 출퇴근 시간은 결과의 ‘대중교통’에서 확인하세요.</div>
       </div>
@@ -596,38 +599,28 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const norm = (s='') => s.toLowerCase().replace(/공차|gong\s*cha|\s|\(|\)|-|_/g,'');
 const esc = (s='') => String(s).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 
-// Kakao Developers에서 발급받은 JavaScript 키를 아래 따옴표 안에 1회 입력하세요.
-// 예: const KAKAO_JS_KEY = '1234567890abcdef...';
-const KAKAO_JS_KEY = '31a83337e601fce63d6d16b38ac36ba8';
+function showDiagnostic(msg){
+  const el=$('diagnostic');
+  if(!el) return;
+  el.textContent=msg;
+  el.style.display='block';
+}
 
-$('candidateBtn').addEventListener('click', searchCandidate);
-$('candidateAddress').addEventListener('keydown', e => { if(e.key==='Enter') searchCandidate(); });
-$('storeSearch').addEventListener('input', renderResults);
-
-// 사이트 접속 즉시 지도 자동 실행
-setTimeout(() => loadSdk(KAKAO_JS_KEY), 0);
-
-function loadSdk(key){
-  if(!key || key === 'YOUR_KAKAO_JAVASCRIPT_KEY'){
-    alert('index.html의 KAKAO_JS_KEY 값에 Kakao JavaScript 키를 먼저 입력해주세요.');
+function bootKakao(){
+  if(!window.kakao || !kakao.maps){
+    showDiagnostic('카카오맵 SDK를 불러오지 못했습니다. Kakao Developers의 JavaScript SDK 도메인에 현재 사이트 주소가 등록되어 있는지 확인해주세요.');
     return;
   }
-  const old = document.getElementById('kakao-sdk'); if(old) old.remove();
-  const s = document.createElement('script');
-  s.id='kakao-sdk';
-  s.src='https://dapi.kakao.com/v2/maps/sdk.js?appkey='+encodeURIComponent(key)+'&libraries=services&autoload=false';
-  s.onload=()=>{
-    if(!window.kakao || !kakao.maps){ failSdk('카카오맵 SDK를 초기화하지 못했습니다. 키와 도메인 설정을 확인해주세요.'); return; }
-    kakao.maps.load(initMap);
-  };
-  s.onerror=()=>failSdk('카카오맵 SDK를 불러오지 못했습니다. JavaScript 키 또는 네트워크를 확인해주세요.');
-  document.head.appendChild(s);
+  kakao.maps.load(()=>{
+    if(!kakao.maps.services){
+      showDiagnostic('지도 SDK는 로드됐지만 services 라이브러리를 사용할 수 없습니다. 카카오맵 API 사용 설정과 앱 쿼터/결제 설정을 확인해주세요.');
+      return;
+    }
+    initMap();
+  });
 }
 
-function failSdk(msg){
-  console.error(msg);
-  alert(msg + '\\n\\nKakao Developers의 JavaScript SDK 도메인 설정을 확인해주세요.');
-}
+window.addEventListener('DOMContentLoaded', bootKakao);
 
 async function initMap(){
   try{
@@ -639,13 +632,17 @@ async function initMap(){
     infowindow = new kakao.maps.InfoWindow({zIndex:20, removable:true});
     await loadStores();
   }catch(err){
-    console.error(err); alert('지도를 초기화하는 중 오류가 발생했습니다. Kakao JavaScript 키와 도메인 등록을 확인해주세요.');
+    console.error(err); showDiagnostic('지도 초기화 중 오류가 발생했습니다: '+(err && err.message ? err.message : err));
   }
 }
 
 function keywordSearch(q){
   return new Promise(resolve=>{
     places.keywordSearch(q,(data,status)=>{
+      if(status===kakao.maps.services.Status.ERROR){
+        console.error('Kakao Places ERROR:', q);
+        showDiagnostic('카카오 장소검색 API가 ERROR를 반환했습니다. 카카오맵 API 사용 설정/쿼터/결제 상태를 확인해주세요.');
+      }
       resolve(status===kakao.maps.services.Status.OK ? data : []);
     },{size:15});
   });
@@ -690,7 +687,11 @@ function addressVariants(raw=''){
 function addressSearchOne(q){
   return new Promise(resolve=>{
     geocoder.addressSearch(q,(data,status)=>{
-      if(status===kakao.maps.services.Status.OK && data.length){
+      if(status===kakao.maps.services.Status.ERROR){
+        console.error('Kakao Geocoder ERROR:', q);
+        showDiagnostic('카카오 주소검색 API가 ERROR를 반환했습니다. 카카오맵 API 사용 설정/쿼터/결제 상태를 확인해주세요.');
+        resolve(null);
+      }else if(status===kakao.maps.services.Status.OK && data.length){
         const d=data[0];
         resolve({lat:Number(d.y),lng:Number(d.x),address:d.road_address?.address_name||d.address_name||q,source:'address'});
       }else resolve(null);
