@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gong cha Store Map</title>
+  <style>
+    :root{
+      --gongcha:#c42033;
+      --gongcha-dark:#8f1423;
+      --cream:#faf6ee;
+      --paper:#ffffff;
+      --ink:#211a1b;
+      --muted:#72686a;
+      --line:#e8dfd8;
+      --blue:#2563eb;
+      --shadow:0 18px 45px rgba(63,32,35,.14);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Pretendard,"Noto Sans KR","Apple SD Gothic Neo",Arial,sans-serif;color:var(--ink);background:var(--cream)}
+    button,input{font:inherit}
+    button{cursor:pointer}
+    .app{display:grid;height:100%;min-height:620px;grid-template-rows:auto 1fr}
+    .topbar{display:flex;align-items:center;gap:16px;padding:14px 18px;background:rgba(250,246,238,.96);border-bottom:1px solid var(--line);z-index:20}
+    .brand{display:flex;align-items:center;gap:12px;min-width:max-content}
+    .brandmark{width:34px;height:34px;border-radius:50%;background:var(--gongcha);display:grid;place-items:center;color:#fff;font-weight:900;letter-spacing:-1px;box-shadow:0 5px 16px rgba(196,32,51,.25)}
+    .brandtext strong{display:block;font-size:15px;line-height:1.15}.brandtext span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+    .candidate-search{display:flex;gap:8px;flex:1;max-width:760px;margin-left:auto}
+    .candidate-search input,.store-search input{width:100%;border:1px solid var(--line);border-radius:11px;background:#fff;padding:11px 13px;outline:none;transition:.15s}
+    .candidate-search input:focus,.store-search input:focus{border-color:#d78a93;box-shadow:0 0 0 3px rgba(196,32,51,.08)}
+    .primary{border:0;border-radius:11px;background:var(--gongcha);color:white;font-weight:800;padding:0 18px;white-space:nowrap}
+    .primary:hover{background:var(--gongcha-dark)}
+    .workspace{display:grid;grid-template-columns:minmax(0,1fr) 390px;min-height:0}
+    .map-wrap{position:relative;min-height:0;background:#eee}
+    #map{position:absolute;inset:0}
+    .map-note{position:absolute;left:14px;bottom:14px;z-index:10;background:rgba(255,255,255,.94);border:1px solid rgba(0,0,0,.08);padding:9px 11px;border-radius:10px;font-size:11px;color:#5d5557;box-shadow:0 7px 24px rgba(0,0,0,.1)}
+    .side{background:var(--paper);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+    .side-head{padding:18px;border-bottom:1px solid var(--line)}
+    .side-head h1{font-size:20px;margin:0 0 6px;letter-spacing:-.5px}.side-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.55}
+    .store-search{margin-top:14px;position:relative}
+    .status-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;font-size:11px;color:var(--muted)}
+    .status-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#f7f3ef;padding:6px 9px}
+    .dot{width:7px;height:7px;border-radius:50%;background:#b8acae}.dot.live{background:#25a55f;box-shadow:0 0 0 4px rgba(37,165,95,.1)}
+    .results-title{padding:13px 18px 10px;display:flex;align-items:end;justify-content:space-between}.results-title b{font-size:14px}.results-title span{font-size:11px;color:var(--muted)}
+    .results{overflow:auto;padding:0 10px 18px}
+    .result{border:1px solid transparent;border-radius:13px;padding:12px 10px;display:grid;grid-template-columns:34px 1fr;gap:10px;transition:.15s;margin-bottom:4px}
+    .result:hover{background:#fbf7f2;border-color:#eee3dc}.rank{width:30px;height:30px;border-radius:9px;background:#f3ece7;display:grid;place-items:center;font-size:12px;font-weight:900;color:#6f6062}
+    .result.top1 .rank{background:var(--gongcha);color:#fff}.result.top2 .rank,.result.top3 .rank{background:#f3d9dd;color:var(--gongcha)}
+    .rname{font-weight:800;font-size:13px}.rmeta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45}.rbuttons{display:flex;gap:7px;margin-top:8px}
+    .tiny-link{display:inline-flex;align-items:center;text-decoration:none;color:var(--gongcha);font-size:11px;font-weight:800;border:1px solid #efd7da;padding:5px 7px;border-radius:7px;background:#fff}.tiny-link:hover{background:#fff5f6}
+    .empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
+    .store-pin{position:relative;width:18px;height:18px;border:3px solid #fff;border-radius:50%;background:var(--gongcha);box-shadow:0 3px 12px rgba(91,20,28,.35);transform:translate(-50%,-50%);transition:.12s;cursor:pointer}
+    .store-pin:hover,.store-pin.active{transform:translate(-50%,-50%) scale(1.32);z-index:10}
+    .store-pin .rank-badge{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:white;font-weight:900;font-size:9px;line-height:1}
+    .store-pin.ranked{width:25px;height:25px;border-width:3px}.store-pin.ranked .rank-badge{display:block}.store-pin.rank1{background:#7f1020}.store-pin.rank2{background:#b7182c}.store-pin.rank3{background:#d94a5b}
+    .candidate-pin{transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 5px 12px rgba(30,64,175,.25))}
+    .candidate-pin .bubble{background:var(--blue);color:white;font-size:11px;font-weight:900;padding:6px 9px;border-radius:9px;white-space:nowrap;border:2px solid white}
+    .candidate-pin .tip{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid var(--blue);margin-top:-2px}
+    .info-card{min-width:210px;max-width:260px;padding:12px 13px 10px;font-family:inherit}.info-card strong{font-size:13px}.info-card p{margin:5px 0 8px;font-size:11px;color:#6d6264;line-height:1.45}.info-card a{color:var(--gongcha);font-size:11px;font-weight:800;text-decoration:none;margin-right:8px}.setup h2{margin:0 0 8px;font-size:24px;letter-spacing:-.7px}.setup p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}.keybox input{flex:1;min-width:0;border:1px solid var(--line);border-radius:11px;padding:12px 13px;outline:none}.keybox input:focus{border-color:#d78a93;box-shadow:0 0 0 3px rgba(196,32,51,.08)}.steps b{color:var(--ink)}
+    .loading{position:absolute;top:14px;left:14px;z-index:11;background:rgba(255,255,255,.95);border:1px solid rgba(0,0,0,.08);box-shadow:0 6px 20px rgba(0,0,0,.08);border-radius:10px;padding:9px 11px;font-size:11px;color:#5b5153;display:none}
+    @media(max-width:900px){
+      .app{height:auto;min-height:100%}.workspace{grid-template-columns:1fr;grid-template-rows:62vh auto}.side{border-left:0;border-top:1px solid var(--line);min-height:420px}.topbar{flex-wrap:wrap}.candidate-search{order:2;flex-basis:100%;max-width:none}.workspace{min-height:0}.map-wrap{min-height:420px}
+    }
+    @media(max-width:520px){.brandtext span{display:none}.topbar{padding:11px}.candidate-search{gap:6px}.candidate-search input{padding:10px 11px}.primary{padding:0 12px}.workspace{grid-template-rows:56vh auto}.side-head{padding:15px}}
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandmark">GC</div>
+        <div class="brandtext"><strong>Store Map</strong><span>Gong cha Korea · P&amp;C</span></div>
+      </div>
+      <div class="candidate-search">
+        <input id="candidateAddress" placeholder="후보자 주소 입력 · 예) 서울 영등포구 도림로 313" />
+        <button class="primary" id="candidateBtn">가까운 매장 찾기</button>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <div class="map-wrap">
+        <div id="map"></div>
+        <div class="loading" id="loading">매장 위치 확인 중… <b id="progressText">0 / 60</b></div>
+        <div class="map-note">가까운 매장 순위는 <b>직선거리 기준</b>입니다. 실제 출퇴근 시간은 결과의 ‘대중교통’에서 확인하세요.</div>
+      </div>
+      <aside class="side">
+        <div class="side-head">
+          <h1 id="panelTitle">직영점 위치</h1>
+          <p id="panelDesc">매장 핀을 클릭하면 상세 위치를 확인할 수 있습니다.</p>
+          <div class="store-search"><input id="storeSearch" placeholder="매장명 검색" /></div>
+          <div class="status-row">
+            <span class="status-pill"><i class="dot" id="statusDot"></i><span id="statusText">매장 위치 불러오는 중</span></span>
+            <span id="resolvedCount">0개 매장</span>
+          </div>
+        </div>
+        <div class="results-title"><b id="resultsLabel">매장 목록</b><span id="distanceLabel"></span></div>
+        <div class="results" id="results"><div class="empty">매장 위치를 불러오고 있습니다.</div></div>
+      </aside>
+    </section>
+  </main>
+
+<script>
+const STORE_SEED = [
+  {
+    "no": 1,
+    "name": "SRT수서역점",
+    "city": "서울",
+    "district": "강남구",
+    "region": "강남권",
+    "address": "서울특별시 강남구 밤고개로 99(수서역사), 지하2층"
+  },
+  {
+    "no": 2,
+    "name": "강남2호점",
+    "city": "서울",
+    "district": "강남구",
+    "region": "강남권",
+    "address": "서울특별시 강남구 강남대로102길 14, 1층 103호(역삼동)"
+  },
+  {
+    "no": 3,
+    "name": "강남본점",
+    "city": "서울",
+    "district": "강남구",
+    "region": "강남권",
+    "address": "서울시 강남구 테헤란로 115"
+  },
+  {
+    "no": 4,
+    "name": "대치사거리점",
+    "city": "서울",
+    "district": "강남구",
+    "region": "강남권",
+    "address": "서울특별시 강남구 역삼로 506"
+  },
+  {
+    "no": 5,
+    "name": "선릉역점",
+    "city": "서울",
+    "district": "강남구",
+    "region": "강남권",
+    "address": "서울특별시 강남구 테헤란로 411"
+  },
+  {
+    "no": 6,
+    "name": "신논현점",
+    "city": "서울",
+    "district": "강남구",
+    "region": "강남권",
+    "address": "서울특별시 강남구 강남대로 484"
+  },
+  {
+    "no": 7,
+    "name": "압구정로데오점",
+    "city": "서울",
+    "district": "강남구",
+    "region": "강남권",
+    "address": "서울특별시 강남구 선릉로153길 12"
+  },
+  {
+    "no": 8,
+    "name": "파르나스몰",
+    "city": "서울",
+    "district": "강남구",
+    "region": "강남권",
+    "address": "서울특별시 강남구 테헤란로 521, 파르나스몰 B1"
+  },
+  {
+    "no": 9,
+    "name": "고속터미널점",
+    "city": "서울",
+    "district": "서초구",
+    "region": "강남권",
+    "address": "서울시 서초구 신반포로 194, 부속상가 1층 18호"
+  },
+  {
+    "no": 10,
+    "name": "반포삼호가든점",
+    "city": "서울",
+    "district": "서초구",
+    "region": "강남권",
+    "address": "서울시 서초구 서초중앙로 239, 1층 공차"
+  },
+  {
+    "no": 11,
+    "name": "센트럴시티점",
+    "city": "서울",
+    "district": "서초구",
+    "region": "강남권",
+    "address": "서울특별시 서초구 신반포로 176, 센트럴시티"
+  },
+  {
+    "no": 12,
+    "name": "예술의전당",
+    "city": "서울",
+    "district": "서초구",
+    "region": "강남권",
+    "address": "서울시 서초구 남부순환로 2406, 예술의전당 비타민스테이션 1층"
+  },
+  {
+    "no": 13,
+    "name": "예술의전당점",
+    "city": "서울",
+    "district": "서초구",
+    "region": "강남권",
+    "address": "서울시 서초구 남부순환로 2406, 예술의전당 비타민스테이션 1층"
+  },
+  {
+    "no": 14,
+    "name": "롯데월드어드벤처점",
+    "city": "서울",
+    "district": "송파구",
+    "region": "강동권",
+    "address": "서울특별시 송파구 잠실동 40-1, 롯데월드 어드벤처 2층"
+  },
+  {
+    "no": 15,
+    "name": "롯데월드점",
+    "city": "서울",
+    "district": "송파구",
+    "region": "강동권",
+    "address": "서울특별시 송파구 올림픽로 240, 롯데월드 B1F (로티로리광장)"
+  },
+  {
+    "no": 16,
+    "name": "송파방이점",
+    "city": "서울",
+    "district": "송파구",
+    "region": "강동권",
+    "address": "서울특별시 송파구 오금로11길 6"
+  },
+  {
+    "no": 17,
+    "name": "잠실월드몰점",
+    "city": "서울",
+    "district": "송파구",
+    "region": "강동권",
+    "address": "서울특별시 송파구 올림픽로 300, 롯데월드몰"
+  },
+  {
+    "no": 18,
+    "name": "군자역점",
+    "city": "서울",
+    "district": "광진구",
+    "region": "강북권",
+    "address": "서울시 광진구 능동로 300, 1층"
+  },
+  {
+    "no": 19,
+    "name": "홍대점",
+    "city": "서울",
+    "district": "마포구",
+    "region": "강북권",
+    "address": "서울특별시 마포구 서교동 345-13"
+  },
+  {
+    "no": 20,
+    "name": "현대신촌점",
+    "city": "서울",
+    "district": "서대문구",
+    "region": "강북권",
+    "address": "서울특별시 서대문구 신촌로 83, 현대백화점신촌점 B1"
+  },
+  {
+    "no": 21,
+    "name": "이태원점",
+    "city": "서울",
+    "district": "용산구",
+    "region": "강북권",
+    "address": "서울시 용산구 이태원로 206"
+  },
+  {
+    "no": 22,
+    "name": "대학로마로니에점",
+    "city": "서울",
+    "district": "종로구",
+    "region": "강북권",
+    "address": "종로구 대학로 10길 20 (동숭동, 1층)"
+  },
+  {
+    "no": 23,
+    "name": "대학로점",
+    "city": "서울",
+    "district": "종로구",
+    "region": "강북권",
+    "address": "서울특별시 종로구 대명길 4, 2, 3층"
+  },
+  {
+    "no": 24,
+    "name": "명동점",
+    "city": "서울",
+    "district": "중구",
+    "region": "강북권",
+    "address": "서울특별시 중구 명동1가 46-3"
+  },
+  {
+    "no": 25,
+    "name": "서울역점",
+    "city": "서울",
+    "district": "중구",
+    "region": "강북권",
+    "address": "서울특별시 중구 한강대로 405, 서울역"
+  },
+  {
+    "no": 26,
+    "name": "김포공항국내선점",
+    "city": "서울",
+    "district": "강서구",
+    "region": "강서권",
+    "address": "서울시 강서구 하늘길 112, 김포공항국내선동 1층(공항동)"
+  },
+  {
+    "no": 27,
+    "name": "김포공항국제선점",
+    "city": "서울",
+    "district": "강서구",
+    "region": "강서권",
+    "address": "서울특별시 강서구 하늘길 38, 김포국제공항 국제선"
+  },
+  {
+    "no": 28,
+    "name": "김포롯데몰점",
+    "city": "서울",
+    "district": "강서구",
+    "region": "강서권",
+    "address": "서울특별시 강서구 방화동 886, 김포롯데몰 MF(지하1층)"
+  },
+  {
+    "no": 29,
+    "name": "서울대점",
+    "city": "서울",
+    "district": "관악구",
+    "region": "강서권",
+    "address": "서울시 관악구 관악로 1, 63동 학생회관 1층 공차"
+  },
+  {
+    "no": 30,
+    "name": "타임스트림점",
+    "city": "서울",
+    "district": "관악구",
+    "region": "강서권",
+    "address": "서울특별시 관악구 신림로 330, 타임스트림"
+  },
+  {
+    "no": 31,
+    "name": "이수점",
+    "city": "서울",
+    "district": "동작구",
+    "region": "강서권",
+    "address": "서울특별시 동작구 동작대로27길 14"
+  },
+  {
+    "no": 32,
+    "name": "현대목동점",
+    "city": "서울",
+    "district": "양천구",
+    "region": "강서권",
+    "address": "서울특별시 양천구 목동 916 현대백화점 지하 2층"
+  },
+  {
+    "no": 33,
+    "name": "여의도역사점",
+    "city": "서울",
+    "district": "영등포구",
+    "region": "강서권",
+    "address": "서울특별시 영등포구 여의도역 역사 내"
+  },
+  {
+    "no": 34,
+    "name": "여의도점",
+    "city": "서울",
+    "district": "영등포구",
+    "region": "강서권",
+    "address": "서울특별시 영등포구 여의도동 24-4"
+  },
+  {
+    "no": 35,
+    "name": "타임스퀘어점",
+    "city": "서울",
+    "district": "영등포구",
+    "region": "강서권",
+    "address": "서울특별시 영등포구 영중로 15, 타임스퀘어"
+  },
+  {
+    "no": 36,
+    "name": "분당서울대병원점",
+    "city": "경기",
+    "district": "성남시",
+    "region": "",
+    "address": "경기도 성남시 분당구 구미동 300, 분당서울대병원 1동 1층 공차"
+  },
+  {
+    "no": 37,
+    "name": "AK수원점",
+    "city": "경기",
+    "district": "수원시",
+    "region": "",
+    "address": "경기도 수원시 팔달구 매산로1가 18, AK플라자 지하 1층"
+  },
+  {
+    "no": 38,
+    "name": "롯데수원점",
+    "city": "경기",
+    "district": "수원시",
+    "region": "",
+    "address": "경기도 수원시 권선구 서둔동 296-77, 롯데백화점 수원점 지하 1층"
+  },
+  {
+    "no": 39,
+    "name": "AK&수원점",
+    "city": "경기",
+    "district": "수원시",
+    "region": "",
+    "address": "경기도 수원시 팔달구 덕영대로 924 AK프라자 AK& 2층"
+  },
+  {
+    "no": 40,
+    "name": "스타필드안성점",
+    "city": "경기",
+    "district": "안성시",
+    "region": "",
+    "address": "안성시 공도읍 서동대로 3930-39 스타필드안성 3층 3190호"
+  },
+  {
+    "no": 41,
+    "name": "수지롯데몰점",
+    "city": "경기",
+    "district": "용인시",
+    "region": "",
+    "address": "경기도 용인시 수지구 성복2로 38, 롯데몰성복점 지하1층 공차"
+  },
+  {
+    "no": 42,
+    "name": "삼성전자SR1점",
+    "city": "경기",
+    "district": "용인시",
+    "region": "",
+    "address": "경기도 용인시 기흥구 삼성로1(농서동) SR1동 1층"
+  },
+  {
+    "no": 43,
+    "name": "롯데아울렛의왕점",
+    "city": "경기",
+    "district": "의왕시",
+    "region": "",
+    "address": "경기도 의왕시 바라산로 1, 롯데프리미엄아울렛 타임빌라스"
+  },
+  {
+    "no": 44,
+    "name": "신세계의정부점",
+    "city": "경기",
+    "district": "의정부시",
+    "region": "",
+    "address": "경기도 의정부시 의정부동 168-54 신세계백화점 의정부점 3층"
+  },
+  {
+    "no": 45,
+    "name": "스타필드빌리지운정점",
+    "city": "경기",
+    "district": "파주시",
+    "region": "",
+    "address": "경기도 파주시 와석순환로 515번길 10, 스타필드빌리지운정 D동 4101호"
+  },
+  {
+    "no": 46,
+    "name": "삼성전자DSR타워점",
+    "city": "경기",
+    "district": "화성시",
+    "region": "",
+    "address": "경기도 화성시 삼성전자로 1(반월동), DSR타워 B동 1층"
+  },
+  {
+    "no": 47,
+    "name": "롯데동탄점",
+    "city": "경기",
+    "district": "화성시",
+    "region": "",
+    "address": "경기 화성시 동탄역로 160, 롯데백화점 동탄점 B1"
+  },
+  {
+    "no": 48,
+    "name": "인천터미널점",
+    "city": "인천",
+    "district": "미추홀구",
+    "region": "",
+    "address": "인천광역시 미추홀구 연남로 35, 인천종합터미널"
+  },
+  {
+    "no": 49,
+    "name": "삼성바이오로직스점",
+    "city": "인천",
+    "district": "연수구",
+    "region": "",
+    "address": "인천광역시 연수구 송도바이오대로 300, 바이오플라자2 3층"
+  },
+  {
+    "no": 50,
+    "name": "현대송도점",
+    "city": "인천",
+    "district": "연수구",
+    "region": "",
+    "address": "인천광역시 연수구 송도국제대로 123, 현대프리미엄아울렛 송도"
+  },
+  {
+    "no": 51,
+    "name": "인천국제공항6호점",
+    "city": "인천",
+    "district": "중구",
+    "region": "",
+    "address": "인천광역시 중구 공항로 272, 인천국제공항 제1여객터미널"
+  },
+  {
+    "no": 52,
+    "name": "인천국제공항T2 1호점",
+    "city": "인천",
+    "district": "중구",
+    "region": "",
+    "address": "인천시 중구 제2터미널대로 446, 제2여객터미널 A/S 3층"
+  },
+  {
+    "no": 53,
+    "name": "인천국제공항T2 2호점",
+    "city": "인천",
+    "district": "중구",
+    "region": "",
+    "address": "인천시 중구 제2터미널대로 446, 제2여객터미널 L/S 3층"
+  },
+  {
+    "no": 54,
+    "name": "인천국제공항T2 3호점",
+    "city": "인천",
+    "district": "중구",
+    "region": "",
+    "address": "인천 영종구 제2터미널대로 446, 제2여객터미널 3층 면세동"
+  },
+  {
+    "no": 55,
+    "name": "인스파이어리조트점",
+    "city": "인천",
+    "district": "중구",
+    "region": "",
+    "address": "인천시 중구 공항문화로 127 인스파이어리조트 아레나홀 R층"
+  },
+  {
+    "no": 56,
+    "name": "파라다이스시티점",
+    "city": "인천",
+    "district": "중구",
+    "region": "",
+    "address": "인천광역시 중구 영종해안남로 321 번길 186 PARADISE CITY 내 PLAZA, F105"
+  },
+  {
+    "no": 57,
+    "name": "현대아울렛대전점",
+    "city": "대전",
+    "district": "유성구",
+    "region": "",
+    "address": "대전광역시 유성구 테크노중앙로 123, 현대프리미엄아울렛 대전"
+  },
+  {
+    "no": 58,
+    "name": "현대충청점",
+    "city": "충북",
+    "district": "청주시",
+    "region": "",
+    "address": "충청북도 청주시 흥덕구 복대동 3380 현대백화점충청점 지하 1층"
+  },
+  {
+    "no": 59,
+    "name": "부산광복점",
+    "city": "부산",
+    "district": "중구",
+    "region": "",
+    "address": "부산 중구 광복로 80 1-2층"
+  },
+  {
+    "no": 60,
+    "name": "롯데백화점 부산본점",
+    "city": "부산",
+    "district": "부산진구",
+    "region": "",
+    "address": "부산 부산진구 가야대로 772 , B1층"
+  }
+];
+
+let map, places, geocoder, infowindow;
+let resolvedStores = [];
+let unresolvedStores = [];
+let candidate = null;
+const STORE_CACHE_KEY = 'gongcha_store_coords_v2';
+let candidateOverlay = null;
+let nearestLine = null;
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const norm = (s='') => s.toLowerCase().replace(/공차|gong\s*cha|\s|\(|\)|-|_/g,'');
+const esc = (s='') => String(s).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+
+// Kakao Developers에서 발급받은 JavaScript 키를 아래 따옴표 안에 1회 입력하세요.
+// 예: const KAKAO_JS_KEY = '1234567890abcdef...';
+const KAKAO_JS_KEY = '31a83337e601fce63d6d16b38ac36ba8';
+
+$('candidateBtn').addEventListener('click', searchCandidate);
+$('candidateAddress').addEventListener('keydown', e => { if(e.key==='Enter') searchCandidate(); });
+$('storeSearch').addEventListener('input', renderResults);
+
+// 사이트 접속 즉시 지도 자동 실행
+setTimeout(() => loadSdk(KAKAO_JS_KEY), 0);
+
+function loadSdk(key){
+  if(!key || key === 'YOUR_KAKAO_JAVASCRIPT_KEY'){
+    alert('index.html의 KAKAO_JS_KEY 값에 Kakao JavaScript 키를 먼저 입력해주세요.');
+    return;
+  }
+  const old = document.getElementById('kakao-sdk'); if(old) old.remove();
+  const s = document.createElement('script');
+  s.id='kakao-sdk';
+  s.src='https://dapi.kakao.com/v2/maps/sdk.js?appkey='+encodeURIComponent(key)+'&libraries=services&autoload=false';
+  s.onload=()=>{
+    if(!window.kakao || !kakao.maps){ failSdk('카카오맵 SDK를 초기화하지 못했습니다. 키와 도메인 설정을 확인해주세요.'); return; }
+    kakao.maps.load(initMap);
+  };
+  s.onerror=()=>failSdk('카카오맵 SDK를 불러오지 못했습니다. JavaScript 키 또는 네트워크를 확인해주세요.');
+  document.head.appendChild(s);
+}
+
+function failSdk(msg){
+  console.error(msg);
+  alert(msg + '\\n\\nKakao Developers의 JavaScript SDK 도메인 설정을 확인해주세요.');
+}
+
+async function initMap(){
+  try{
+    map = new kakao.maps.Map($('map'), {center:new kakao.maps.LatLng(37.5665,126.9780), level:9});
+    map.addControl(new kakao.maps.MapTypeControl(), kakao.maps.ControlPosition.TOPRIGHT);
+    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+    places = new kakao.maps.services.Places();
+    geocoder = new kakao.maps.services.Geocoder();
+    infowindow = new kakao.maps.InfoWindow({zIndex:20, removable:true});
+    await loadStores();
+  }catch(err){
+    console.error(err); alert('지도를 초기화하는 중 오류가 발생했습니다. Kakao JavaScript 키와 도메인 등록을 확인해주세요.');
+  }
+}
+
+function keywordSearch(q){
+  return new Promise(resolve=>{
+    places.keywordSearch(q,(data,status)=>{
+      resolve(status===kakao.maps.services.Status.OK ? data : []);
+    },{size:15});
+  });
+}
+
+function scorePlace(place, store){
+  const pn=norm(place.place_name), sn=norm(store.name), addr=(place.road_address_name||place.address_name||'');
+  let score=0;
+  if(pn.includes(sn)) score+=140;
+  if(sn.includes(pn.replace('공차',''))) score+=40;
+  if(norm(place.place_name).includes('공차')) score+=30;
+  if(store.address && addr && (store.address.includes(addr) || addr.includes(store.district))) score+=35;
+  if(addr.includes(store.city)) score+=15;
+  if(addr.includes(store.district)) score+=25;
+  if((place.category_name||'').includes('카페')) score+=5;
+  return score;
+}
+
+function simplifyAddress(raw=''){
+  let s=String(raw).trim();
+  s=s.replace(/\([^)]*\)/g,' ');
+  s=s.replace(/(서울시)(?=\s)/g,'서울특별시')
+     .replace(/(인천시)(?=\s)/g,'인천광역시')
+     .replace(/(부산시)(?=\s)/g,'부산광역시')
+     .replace(/(대전시)(?=\s)/g,'대전광역시');
+  s=s.replace(/(\d+)\s*번길/g,'$1번길');
+  // 상세 호수/층/동 정보는 주소 API 정확도를 떨어뜨릴 수 있어 제거
+  s=s.replace(/\s+(?:[가-힣A-Za-z]+동\s*)?\d+호\b.*$/,'');
+  s=s.replace(/\s+\d+층\b.*$/,'');
+  s=s.replace(/,.*$/,'');
+  return s.replace(/\s+/g,' ').trim();
+}
+
+function addressVariants(raw=''){
+  const exact=String(raw).trim();
+  const simple=simplifyAddress(exact);
+  const noParen=exact.replace(/\([^)]*\)/g,' ').replace(/\s+/g,' ').trim();
+  const beforeComma=exact.split(',')[0].trim();
+  return [...new Set([exact,noParen,beforeComma,simple].filter(Boolean))];
+}
+
+function addressSearchOne(q){
+  return new Promise(resolve=>{
+    geocoder.addressSearch(q,(data,status)=>{
+      if(status===kakao.maps.services.Status.OK && data.length){
+        const d=data[0];
+        resolve({lat:Number(d.y),lng:Number(d.x),address:d.road_address?.address_name||d.address_name||q,source:'address'});
+      }else resolve(null);
+    });
+  });
+}
+
+async function geocodeAddressFlexible(raw){
+  for(const q of addressVariants(raw)){
+    const hit=await addressSearchOne(q);
+    if(hit) return {...hit,query:q};
+  }
+  return null;
+}
+
+function loadStoreCache(){
+  try{return JSON.parse(localStorage.getItem(STORE_CACHE_KEY)||'{}')||{};}catch(e){return {};}
+}
+function saveStoreCache(cache){
+  try{localStorage.setItem(STORE_CACHE_KEY,JSON.stringify(cache));}catch(e){}
+}
+
+async function resolveStore(store, cache){
+  const cacheId=`${store.name}|${store.address}`;
+  const cached=cache[cacheId];
+  if(cached && Number.isFinite(cached.lat) && Number.isFinite(cached.lng)) return {...store,...cached,source:'cache'};
+
+  // 1순위: 엑셀에 적힌 실제 매장 주소
+  const geo=await geocodeAddressFlexible(store.address);
+  if(geo){
+    const result={...store,lat:geo.lat,lng:geo.lng,matchedAddress:geo.address,source:'address'};
+    cache[cacheId]={lat:result.lat,lng:result.lng,matchedAddress:result.matchedAddress};
+    saveStoreCache(cache);
+    return result;
+  }
+
+  // 2순위: 주소가 특수시설/역사 내부 표기라 지오코딩이 안 될 때 카카오 장소검색
+  const queries=[`공차 ${store.name} ${store.city} ${store.district}`,`공차 ${store.name}`,`${store.name} 공차`,store.address];
+  let candidates=[];
+  for(const q of queries){
+    candidates=await keywordSearch(q);
+    if(candidates.length) break;
+  }
+  if(!candidates.length) return null;
+  candidates.sort((a,b)=>scorePlace(b,store)-scorePlace(a,store));
+  const p=candidates[0];
+  const result={...store,lat:Number(p.y),lng:Number(p.x),matchedAddress:p.road_address_name||p.address_name||store.address,placeName:p.place_name||store.name,placeId:p.id||'',url:p.place_url||'',source:'place'};
+  cache[cacheId]={lat:result.lat,lng:result.lng,matchedAddress:result.matchedAddress,placeName:result.placeName,placeId:result.placeId,url:result.url};
+  saveStoreCache(cache);
+  return result;
+}
+
+async function loadStores(){
+  $('loading').style.display='block';
+  $('progressText').textContent=`0 / ${STORE_SEED.length}`;
+  const bounds = new kakao.maps.LatLngBounds();
+  const cache=loadStoreCache();
+  resolvedStores=[]; unresolvedStores=[];
+  for(let i=0;i<STORE_SEED.length;i++){
+    const store=await resolveStore(STORE_SEED[i],cache);
+    if(store){
+      addStoreMarker(store); resolvedStores.push(store); bounds.extend(new kakao.maps.LatLng(store.lat,store.lng));
+    }else{
+      unresolvedStores.push(STORE_SEED[i]);
+      console.warn('매장 위치 검색 실패:',STORE_SEED[i]);
+    }
+    $('progressText').textContent=`${i+1} / ${STORE_SEED.length}`;
+    $('resolvedCount').textContent=`${resolvedStores.length} / ${STORE_SEED.length}개 매장`;
+    await sleep(35);
+  }
+  $('loading').style.display='none';
+  if(resolvedStores.length){ map.setBounds(bounds,55,55,55,55); }
+  $('statusDot').classList.add('live');
+  $('statusText').textContent=unresolvedStores.length ? `위치 확인 완료 · ${unresolvedStores.length}개 확인 필요` : '전체 매장 위치 확인 완료';
+  renderResults();
+  if(unresolvedStores.length){
+    console.table(unresolvedStores.map(s=>({매장:s.name,주소:s.address})));
+  }
+}
+
+function addStoreMarker(store){
+  const el=document.createElement('div');
+  el.className='store-pin'; el.title=store.name;
+  const rank=document.createElement('span'); rank.className='rank-badge'; el.appendChild(rank);
+  el.addEventListener('click',()=>focusStore(store));
+  const overlay=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(store.lat,store.lng),content:el,yAnchor:0.5,xAnchor:0.5,zIndex:4});
+  overlay.setMap(map);
+  store.overlay=overlay; store.el=el; store.rankEl=rank;
+}
+
+function focusStore(store){
+  resolvedStores.forEach(s=>s.el.classList.toggle('active',s===store));
+  const pos=new kakao.maps.LatLng(store.lat,store.lng); map.panTo(pos);
+  if(map.getLevel()>5) map.setLevel(5,{anchor:pos});
+  const transit = candidate ? kakaoTransitUrl(candidate,store) : `https://map.kakao.com/link/to/${encodeURIComponent(store.name)},${store.lat},${store.lng}`;
+  const content=`<div class="info-card"><strong>${esc(store.name)}</strong><p>${esc(store.address||`${store.city} ${store.district}`)}</p><a target="_blank" rel="noopener" href="https://map.kakao.com/link/map/${encodeURIComponent(store.name)},${store.lat},${store.lng}">지도보기</a><a target="_blank" rel="noopener" href="${transit}">${candidate?'대중교통':'길찾기'}</a></div>`;
+  infowindow.setContent(content); infowindow.setPosition(pos); infowindow.open(map);
+}
+
+async function resolveCandidate(q){
+  // 도로명/지번 주소를 먼저 시도하고, 상세주소 때문에 실패하면 자동으로 단순화해서 재시도
+  const geo=await geocodeAddressFlexible(q);
+  if(geo) return {lat:geo.lat,lng:geo.lng,address:geo.address,label:q,source:'address'};
+
+  // 주소가 아닌 건물명/역명 입력도 허용
+  for(const keyword of [...new Set([q,simplifyAddress(q)].filter(Boolean))]){
+    const data=await keywordSearch(keyword);
+    if(data.length){
+      const p=data[0];
+      return {lat:Number(p.y),lng:Number(p.x),address:p.road_address_name||p.address_name||keyword,label:q,source:'keyword'};
+    }
+  }
+  return null;
+}
+
+async function searchCandidate(){
+  const q=$('candidateAddress').value.trim(); if(!q){ $('candidateAddress').focus(); return; }
+  $('candidateBtn').disabled=true; $('candidateBtn').textContent='검색 중…';
+  const c=await resolveCandidate(q);
+  $('candidateBtn').disabled=false; $('candidateBtn').textContent='가까운 매장 찾기';
+  if(!c){ alert('주소를 찾지 못했습니다. 예: 서울 영등포구 도림로 313 처럼 도로명/지번까지만 입력해보세요. 동·호수 같은 상세주소는 자동 제거해 재검색합니다.'); return; }
+  candidate=c; showCandidate(c); rankByDistance();
+}
+
+function showCandidate(c){
+  if(candidateOverlay) candidateOverlay.setMap(null);
+  const el=document.createElement('div'); el.className='candidate-pin'; el.innerHTML='<div class="bubble">후보자 위치</div><div class="tip"></div>';
+  candidateOverlay=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(c.lat,c.lng),content:el,xAnchor:.5,yAnchor:1,zIndex:15});
+  candidateOverlay.setMap(map);
+}
+
+function haversine(a,b){
+  const R=6371, rad=x=>x*Math.PI/180;
+  const dLat=rad(b.lat-a.lat), dLng=rad(b.lng-a.lng);
+  const x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+function rankByDistance(){
+  resolvedStores.forEach(s=>{s.distance=haversine(candidate,s); s.el.classList.remove('ranked','rank1','rank2','rank3'); s.rankEl.textContent='';});
+  const ranked=[...resolvedStores].sort((a,b)=>a.distance-b.distance);
+  ranked.slice(0,3).forEach((s,i)=>{s.el.classList.add('ranked','rank'+(i+1));s.rankEl.textContent=i+1;});
+  if(nearestLine) nearestLine.setMap(null);
+  if(ranked[0]){
+    nearestLine=new kakao.maps.Polyline({path:[new kakao.maps.LatLng(candidate.lat,candidate.lng),new kakao.maps.LatLng(ranked[0].lat,ranked[0].lng)],strokeWeight:3,strokeColor:'#c42033',strokeOpacity:.55,strokeStyle:'shortdash'}); nearestLine.setMap(map);
+    const bounds=new kakao.maps.LatLngBounds(); bounds.extend(new kakao.maps.LatLng(candidate.lat,candidate.lng)); ranked.slice(0,5).forEach(s=>bounds.extend(new kakao.maps.LatLng(s.lat,s.lng))); map.setBounds(bounds,65,65,65,65);
+  }
+  $('panelTitle').textContent='후보자 기준 가까운 매장';
+  $('panelDesc').textContent=candidate.address;
+  $('resultsLabel').textContent='가까운 매장 순위';
+  $('distanceLabel').textContent='직선거리 기준';
+  renderResults();
+}
+
+function kakaoTransitUrl(from,to){
+  const fromName=encodeURIComponent('후보자'); const toName=encodeURIComponent(to.name);
+  return `https://map.kakao.com/link/by/traffic/${fromName},${from.lat},${from.lng}/${toName},${to.lat},${to.lng}`;
+}
+
+function renderResults(){
+  const q=norm($('storeSearch').value.trim());
+  let list=[...resolvedStores];
+  if(candidate) list.sort((a,b)=>a.distance-b.distance); else list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  if(q) list=list.filter(s=>norm(s.name).includes(q)||norm(s.address).includes(q)||norm(s.city+s.district).includes(q));
+  const box=$('results');
+  if(!list.length){box.innerHTML='<div class="empty">조건에 맞는 매장이 없습니다.</div>';return;}
+  box.innerHTML='';
+  list.forEach((s,idx)=>{
+    const card=document.createElement('div'); card.className='result'+(candidate&&idx<3?' top'+(idx+1):'');
+    const dist=candidate?`${s.distance<1?(s.distance*1000).toFixed(0)+' m':s.distance.toFixed(1)+' km'} · `:'';
+    const transit=candidate?kakaoTransitUrl(candidate,s):`https://map.kakao.com/link/to/${encodeURIComponent(s.name)},${s.lat},${s.lng}`;
+    card.innerHTML=`<div class="rank">${candidate?idx+1:'·'}</div><div><div class="rname">${esc(s.name)}</div><div class="rmeta">${dist}${esc(s.address||`${s.city} ${s.district}`)}</div><div class="rbuttons"><a class="tiny-link" target="_blank" rel="noopener" href="https://map.kakao.com/link/map/${encodeURIComponent(s.name)},${s.lat},${s.lng}">지도</a><a class="tiny-link" target="_blank" rel="noopener" href="${transit}">${candidate?'대중교통':'길찾기'}</a></div></div>`;
+    card.addEventListener('click',e=>{if(e.target.tagName!=='A') focusStore(s);});
+    box.appendChild(card);
+  });
+}
+</script>
+</body>
+</html>
